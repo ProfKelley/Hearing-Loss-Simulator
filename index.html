@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hear Your Voice at 80 – Hearing Loss Simulator</title>
+<!-- Hearing Loss Simulator v01 — single-file app. Audio never leaves the browser. -->
+<style>
+  :root{
+    --ink:#16202A; --muted:#4A5868; --ground:#F6F7F9; --card:#FFFFFF;
+    --line:#D5DBE2; --track:#E3E7EC; --accent:#2457C5; --accent-soft:#EAF0FB;
+    --rec:#C62828; --bar:#8A96A3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5}
+  main{max-width:560px;margin:0 auto;padding:32px 20px 48px;display:flex;flex-direction:column;gap:24px}
+  .eyebrow{margin:0;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  h1{margin:4px 0 6px;font-family:"Space Grotesk",Inter,system-ui,sans-serif;font-size:2rem;line-height:1.1}
+  .lede{margin:0;color:#3A4654}
+  h2{margin:0;font-size:.875rem;font-weight:600;color:var(--muted)}
+  .card{background:var(--card);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;
+    box-shadow:0 1px 2px rgba(22,32,42,.06),0 4px 16px rgba(22,32,42,.05)}
+  label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:.9375rem}
+  label.field span.hint{font-weight:400;font-size:.8125rem;color:var(--muted)}
+  textarea{font:inherit;font-weight:400;border:2px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical;min-height:64px;color:var(--ink)}
+  textarea:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+  .rec-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  #recBtn{width:96px;height:96px;border-radius:50%;border:none;cursor:pointer;background:var(--rec);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(198,40,40,.3)}
+  #recBtn.recording{box-shadow:0 0 0 10px rgba(198,40,40,.18)}
+  @media (prefers-reduced-motion:no-preference){
+    #recBtn.recording{animation:pulse 1.4s ease-in-out infinite}
+    @keyframes pulse{50%{box-shadow:0 0 0 16px rgba(198,40,40,.08)}}
+  }
+  #recBtn .stop-icon{width:28px;height:28px;border-radius:6px;background:#fff;display:none}
+  #recBtn.recording .stop-icon{display:block}
+  #recBtn.recording .mic-icon{display:none}
+  #status{margin:0;font-weight:600;text-align:center}
+  .progress{width:100%;display:flex;flex-direction:column;gap:6px}
+  .track{width:100%;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
+  #fill{height:100%;width:0;background:var(--accent)}
+  #fill.recording{background:var(--rec)}
+  .times{display:flex;justify-content:space-between;font-size:.8125rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .levels{display:flex;flex-direction:column;gap:12px}
+  .lvl{display:flex;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border-radius:12px;font:inherit;color:var(--ink);
+    background:var(--card);border:2px solid var(--line);cursor:pointer;text-align:left;width:100%}
+  .lvl:disabled{cursor:not-allowed;opacity:.5}
+  .lvl[aria-pressed="true"]{border-color:var(--accent)}
+  .lvl .icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;flex-shrink:0;
+    color:var(--accent);background:var(--accent-soft)}
+  .lvl[aria-pressed="true"] .icon{color:#fff;background:var(--accent)}
+  .lvl .txt{display:flex;flex-direction:column;gap:2px;flex:1}
+  .lvl .name{font-weight:600}
+  .lvl .desc{font-size:.8125rem;color:var(--muted)}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:28px}
+  .bars span{display:block;width:5px;border-radius:2px;background:var(--bar)}
+  .lvl[aria-pressed="true"] .bars span{background:var(--accent)}
+  .note{margin:0;font-size:.8125rem;color:var(--muted)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .bottom{display:flex;flex-direction:column;gap:14px}
+  #transcriptToggle{font:inherit;font-weight:600;color:var(--accent);background:var(--card);border:2px solid var(--accent);
+    border-radius:12px;min-height:48px;padding:10px 16px;cursor:pointer;text-align:left}
+  #transcriptPanel{display:flex;flex-direction:column;gap:12px}
+  #transcriptPanel[hidden]{display:none}
+  .tline{border:2px solid var(--line);border-radius:12px;background:var(--card);padding:12px 16px}
+  .tline.selected{border-color:var(--accent)}
+  .tline h3{margin:0 0 4px;font-size:.875rem;font-weight:600;color:var(--muted)}
+  .tline p{margin:0;font-size:1.125rem;letter-spacing:.02em;word-spacing:.15em}
+  .gap{display:inline-block;min-width:.6em;border-bottom:2px solid var(--bar);color:transparent;margin:0 1px}
+  .check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}
+  .check input{width:22px;height:22px;accent-color:var(--accent);margin:0}
+  #audioOffNote{margin:0}
+  body.transcript-only #recordCard .audio-only{display:none}
+  body:not(.transcript-only) #audioOffNote{display:none}
+  .error{color:#A11B1B}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Sensation &amp; Aging</p>
+    <h1>Hear Your Voice at 80</h1>
+    <p class="lede">Record up to 30 seconds of speech, then play it back the way it might sound with age-related hearing loss. Each version keeps the same overall loudness; only the pitch range changes.</p>
+  </header>
+
+  <section id="recordCard" class="card" aria-labelledby="step1">
+    <h2 id="step1">1 · Record</h2>
+    <label class="field" for="sentence">
+      What will you say?
+      <span class="hint">Read this sentence aloud, or type your own words so the transcript matches.</span>
+      <textarea id="sentence" maxlength="400" rows="2">She thinks the fish soup is fresh, so she has seconds.</textarea>
+    </label>
+
+    <p id="audioOffNote" class="note">Audio is off (Transcript only). Choose a level below to read what would be heard.</p>
+
+    <div class="rec-wrap audio-only">
+      <button type="button" id="recBtn" aria-label="Start recording">
+        <svg class="mic-icon" aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
+        <span class="stop-icon" aria-hidden="true"></span>
+      </button>
+      <p id="status" aria-live="polite">Tap to start recording</p>
+      <div class="progress">
+        <div class="track" role="progressbar" id="progress" aria-label="Recording time in seconds" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
+          <div id="fill"></div>
+        </div>
+        <div class="times"><span id="elapsed">0:00</span><span>0:30 max</span></div>
+      </div>
+      <p class="note">Headphones work best: laptop speakers already lose many high pitches. Your recording stays on this device.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="step2" class="levels">
+    <h2 id="step2">2 · Play back</h2>
+    <div id="levelList" class="levels"></div>
+    <p class="note">Bars show how much of each pitch range (low → high: 250 Hz to 8,000 Hz) gets through.</p>
+  </section>
+
+  <section class="bottom" aria-label="Transcript">
+    <button type="button" id="transcriptToggle" aria-expanded="false" aria-controls="transcriptPanel">View transcript of sounds (leaves out phonemes not produced)</button>
+    <div id="transcriptPanel" hidden>
+      <p class="note">Blanks mark speech sounds each level would likely miss. Try listening before you read: when you know the words, your brain fills in the gaps (top-down processing), so some losses are hard to notice. This is a spelling-based approximation of the sounds.</p>
+      <div id="transcriptLines"></div>
+    </div>
+    <label class="check" for="transcriptOnly">
+      <input type="checkbox" id="transcriptOnly">
+      Transcript only
+    </label>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Levels: frequency shaping + phoneme classes likely missed (cumulative) ---------- */
+  var DROP_MILD     = ["s","f","th"];
+  var DROP_MODERATE = DROP_MILD.concat(["sh","ch","z","h","x","t","k"]);
+  var DROP_MARKED   = DROP_MODERATE.concat(["p","j","v"]);
+  var DROP_SEVERE   = DROP_MARKED.concat(["d","g","b"]);
+
+  // Each filter: [type, frequency Hz, gain dB (highshelf only)]
+  var LEVELS = [
+    {id:"original", name:"Original",      desc:"Your recording, unfiltered", filters:[], drop:[]},
+    {id:"mild",     name:"Mild loss",     desc:"Typical around age 60",
+      filters:[["highshelf",2000,-15],["lowpass",6000],["lowpass",6000]], drop:DROP_MILD},
+    {id:"moderate", name:"Moderate loss", desc:"Typical around age 70",
+      filters:[["highshelf",1500,-20],["lowpass",4000],["lowpass",4000]], drop:DROP_MODERATE},
+    {id:"marked",   name:"Marked loss",   desc:"Typical around age 80",
+      filters:[["highshelf",1000,-25],["lowpass",2500],["lowpass",2500]], drop:DROP_MARKED},
+    {id:"severe",   name:"Severe loss",   desc:"Age 85+, or noise damage",
+      filters:[["highshelf",750,-30],["lowpass",1500],["lowpass",1500],["lowpass",1500]], drop:DROP_SEVERE}
+  ];
+  var BAND_HZ = [250,500,1000,2000,4000,8000];
+  var MAX_SECONDS = 30;
+
+  /* ---------- State ---------- */
+  var ctx = null, stream = null, recorder = null, chunks = [];
+  var recording = false, startTime = 0, timerId = null, recordedSeconds = 0;
+  var rendered = {};          // level id -> AudioBuffer
+  var hasAudio = false;
+  var playingId = null, currentSrc = null;
+  var selectedId = null;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var recBtn = $("recBtn"), statusEl = $("status"), fill = $("fill"), progress = $("progress"), elapsed = $("elapsed");
+  var levelList = $("levelList"), sentence = $("sentence");
+  var tToggle = $("transcriptToggle"), tPanel = $("transcriptPanel"), tLines = $("transcriptLines"), tOnly = $("transcriptOnly");
+
+  function getCtx(){
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    return ctx;
+  }
+
+  /* ---------- Frequency response for bars + screen-reader summary ---------- */
+  function bandResponses(lv){
+    var db = BAND_HZ.map(function(){ return 0; });
+    if(!lv.filters.length) return db;
+    var off = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 128, 44100);
+    var freqs = new Float32Array(BAND_HZ), mag = new Float32Array(BAND_HZ.length), ph = new Float32Array(BAND_HZ.length);
+    lv.filters.forEach(function(f){
+      var b = makeFilter(off, f);
+      b.getFrequencyResponse(freqs, mag, ph);
+      for(var i=0;i<db.length;i++){ db[i] += 20*Math.log10(Math.max(mag[i],1e-6)); }
+    });
+    return db;
+  }
+  function makeFilter(c, f){
+    var b = c.createBiquadFilter();
+    b.type = f[0]; b.frequency.value = f[1];
+    if(f[0] === "highshelf"){ b.gain.value = f[2]; } else { b.Q.value = 0.7071; }
+    return b;
+  }
+
+  /* ---------- Build level buttons ---------- */
+  var PLAY = "M8 5v14l11-7z", STOP = "M6 6h12v12H6z";
+  var buttons = {};
+  LEVELS.forEach(function(lv){
+    var db = bandResponses(lv);
+    var top = Math.max.apply(null, db);
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "lvl"; btn.setAttribute("aria-pressed","false");
+    var bars = db.map(function(d){
+      var h = Math.max(0.06, Math.min(1, 1 + (d - top)/40));
+      return '<span style="height:' + Math.round(h*28) + 'px"></span>';
+    }).join("");
+    var hi = Math.round(db[4] - top);
+    var srSummary = lv.filters.length ? (" High pitches near 4,000 Hz reduced about " + Math.abs(hi) + " decibels relative to low pitches.") : " All pitches intact.";
+    btn.innerHTML =
+      '<span class="icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="' + PLAY + '"></path></svg></span>' +
+      '<span class="txt"><span class="name">' + lv.name + '</span><span class="desc">' + lv.desc + '</span>' +
+      '<span class="sr-only">' + srSummary + '</span></span>' +
+      '<span class="bars" aria-hidden="true">' + bars + '</span>';
+    btn.addEventListener("click", function(){ onLevel(lv.id); });
+    levelList.appendChild(btn);
+    buttons[lv.id] = btn;
+  });
+
+  function updateButtons(){
+    var tonly = tOnly.checked;
+    LEVELS.forEach(function(lv){
+      var b = buttons[lv.id];
+      b.disabled = !tonly && !hasAudio;
+      var pressed = tonly ? (selectedId === lv.id) : (playingId === lv.id);
+      b.setAttribute("aria-pressed", pressed ? "true" : "false");
+      b.querySelector(".icon path").setAttribute("d", (!tonly && pressed) ? STOP : PLAY);
+      b.querySelector(".icon").style.display = tonly ? "none" : "";
+    });
+  }
+
+  /* ---------- Recording ---------- */
+  function fmt(s){ s = Math.floor(s); return "0:" + (s<10 ? "0" : "") + s; }
+  function setStatus(t, isErr){ statusEl.textContent = t; statusEl.classList.toggle("error", !!isErr); }
+
+  recBtn.addEventListener("click", function(){
+    if(recording){ stopRec(); } else { startRec(); }
+  });
+
+  function startRec(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+      setStatus("This browser can’t record audio. Try Chrome, Edge, Firefox or Safari, or use Transcript only.", true);
+      return;
+    }
+    stopPlayback();
+    getCtx().resume();
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}})
+      .then(function(s){
+        stream = s; chunks = [];
+        recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = function(e){ if(e.data && e.data.size){ chunks.push(e.data); } };
+        recorder.onstop = onStopped;
+        recorder.start();
+        recording = true; startTime = performance.now();
+        recBtn.classList.add("recording"); fill.classList.add("recording");
+        recBtn.setAttribute("aria-label","Stop recording");
+        setStatus("Recording… tap to stop");
+        hasAudio = false; updateButtons();
+        timerId = setInterval(tick, 100);
+      })
+      .catch(function(){
+        setStatus("Microphone access was blocked. Allow the microphone in your browser settings, or use Transcript only.", true);
+      });
+  }
+
+  function tick(){
+    var s = Math.min(MAX_SECONDS, (performance.now() - startTime)/1000);
+    fill.style.width = (s/MAX_SECONDS*100) + "%";
+    elapsed.textContent = fmt(s);
+    progress.setAttribute("aria-valuenow", String(Math.floor(s)));
+    if(s >= MAX_SECONDS){ stopRec(); }
+  }
+
+  function stopRec(){
+    if(!recording) return;
+    recording = false;
+    clearInterval(timerId);
+    recordedSeconds = Math.min(MAX_SECONDS, (performance.now() - startTime)/1000);
+    recBtn.classList.remove("recording"); fill.classList.remove("recording");
+    recBtn.setAttribute("aria-label","Record again");
+    setStatus("Preparing playback…");
+    recorder.stop();
+  }
+
+  function onStopped(){
+    if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); }
+    var blob = new Blob(chunks, {type: recorder.mimeType || "audio/webm"});
+    blob.arrayBuffer()
+      .then(function(ab){ return decode(ab); })
+      .then(renderAll)
+      .then(function(){
+        hasAudio = true; updateButtons();
+        setStatus("Recorded " + fmt(recordedSeconds) + ". Choose a version to play, or tap to re-record.");
+      })
+      .catch(function(){
+        setStatus("Sorry, that recording couldn’t be processed. Please try again.", true);
+      });
+  }
+
+  function decode(ab){
+    var c = getCtx();
+    return new Promise(function(resolve, reject){
+      var p = c.decodeAudioData(ab, resolve, reject);
+      if(p && p.then){ p.then(resolve, reject); }
+    });
+  }
+
+  /* ---------- Filtering (frequency only; loudness matched to the original) ---------- */
+  function renderLevel(buf, lv){
+    var Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    var off = new Off(1, buf.length, buf.sampleRate);   // mono mixdown
+    var src = off.createBufferSource(); src.buffer = buf;
+    var node = src;
+    lv.filters.forEach(function(f){ var b = makeFilter(off, f); node.connect(b); node = b; });
+    node.connect(off.destination);
+    src.start(0);
+    return off.startRendering();
+  }
+  function rms(b){
+    var d = b.getChannelData(0), s = 0;
+    for(var i=0;i<d.length;i++){ s += d[i]*d[i]; }
+    return Math.sqrt(s / Math.max(1, d.length));
+  }
+  function matchLoudness(ref, out){
+    var r = rms(ref), o = rms(out);
+    if(o < 1e-9) return;
+    var g = r / o, d = out.getChannelData(0), peak = 0;
+    for(var i=0;i<d.length;i++){ var a = Math.abs(d[i]); if(a > peak) peak = a; }
+    if(peak * g > 0.98){ g = 0.98 / peak; }   // avoid clipping
+    for(var j=0;j<d.length;j++){ d[j] *= g; }
+  }
+  function renderAll(buf){
+    rendered = {};
+    return renderLevel(buf, LEVELS[0]).then(function(orig){
+      rendered.original = orig;
+      return Promise.all(LEVELS.slice(1).map(function(lv){
+        return renderLevel(buf, lv).then(function(out){ matchLoudness(orig, out); rendered[lv.id] = out; });
+      }));
+    });
+  }
+
+  /* ---------- Playback ---------- */
+  function stopPlayback(){
+    if(currentSrc){ var s = currentSrc; currentSrc = null; try{ s.stop(); }catch(e){} }
+    playingId = null; updateButtons();
+  }
+  function play(id){
+    stopPlayback();
+    var c = getCtx(); c.resume();
+    var src = c.createBufferSource();
+    src.buffer = rendered[id];
+    src.connect(c.destination);
+    src.onended = function(){ if(currentSrc === src){ currentSrc = null; playingId = null; updateButtons(); } };
+    src.start();
+    currentSrc = src; playingId = id; updateButtons();
+  }
+
+  function onLevel(id){
+    selectedId = id;
+    if(tOnly.checked){
+      openTranscript(true);
+    } else if(hasAudio){
+      if(playingId === id){ stopPlayback(); } else { play(id); }
+    }
+    updateButtons(); renderTranscript();
+  }
+
+  /* ---------- Transcript of sounds ---------- */
+  // Splits a word into rough sound units with a phoneme class (null = kept, e.g. vowels, m, n, l, r, w, y).
+  var SINGLE = {s:"s",z:"z",f:"f",h:"h",t:"t",k:"k",q:"k",x:"x",p:"p",j:"j",v:"v",d:"d",b:"b",g:"g"};
+  function units(word){
+    var w = word.toLowerCase(), out = [], i = 0;
+    while(i < w.length){
+      var c = w[i], n = w[i+1] || "", n2 = w[i+2] || "", len = 1, cls = null;
+      if(c==="t" && n==="c" && n2==="h"){ len=3; cls="ch"; }
+      else if(c==="t" && n==="h"){ len=2; cls="th"; }
+      else if(c==="s" && n==="h"){ len=2; cls="sh"; }
+      else if(c==="c" && n==="h"){ len=2; cls="ch"; }
+      else if(c==="p" && n==="h"){ len=2; cls="f"; }
+      else if(c==="c" && n==="k"){ len=2; cls="k"; }
+      else if(c==="w" && n==="h"){ len=2; cls=null; }
+      else if(c==="g" && n==="h"){ len=2; cls = (i===0) ? "g" : null; }
+      else if((c==="t" || c==="s") && n==="i" && n2==="o"){ len=1; cls="sh"; }   // -tion, -sion
+      else if(c==="c"){ cls = "eiy".indexOf(n) >= 0 && n !== "" ? "s" : "k"; if(n==="c"){ len=2; } }
+      else if(c==="g"){ cls = (i>0 && "eiy".indexOf(n) >= 0 && n !== "") ? "j" : "g"; if(n==="g"){ len=2; } }
+      else if(SINGLE[c]){ cls = SINGLE[c]; if(n===c){ len=2; } }
+      out.push({text: word.substr(i, len), cls: cls});
+      i += len;
+    }
+    return out;
+  }
+
+  function buildLine(text, drop){
+    var p = document.createElement("p");
+    var parts = text.split(/([A-Za-z]+)/);
+    parts.forEach(function(part, idx){
+      if(idx % 2 === 0){ if(part){ p.appendChild(document.createTextNode(part)); } return; }
+      units(part).forEach(function(u){
+        if(u.cls && drop.indexOf(u.cls) >= 0){
+          var g = document.createElement("span");
+          g.className = "gap"; g.setAttribute("aria-hidden","true"); g.textContent = "_";
+          p.appendChild(g);
+        } else {
+          p.appendChild(document.createTextNode(u.text));
+        }
+      });
+    });
+    return p;
+  }
+
+  function renderTranscript(){
+    tLines.textContent = "";
+    var text = sentence.value.trim() || "(Type what you will say in the box above.)";
+    LEVELS.forEach(function(lv){
+      var box = document.createElement("div");
+      box.className = "tline" + (selectedId === lv.id ? " selected" : "");
+      var h = document.createElement("h3");
+      h.textContent = lv.name + " · " + lv.desc + (selectedId === lv.id ? " (selected)" : "");
+      box.appendChild(h);
+      box.appendChild(buildLine(text, lv.drop));
+      tLines.appendChild(box);
+    });
+  }
+
+  function openTranscript(open){
+    tPanel.hidden = !open;
+    tToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    tToggle.textContent = (open ? "Hide" : "View") + " transcript of sounds (leaves out phonemes not produced)";
+  }
+  tToggle.addEventListener("click", function(){ openTranscript(tPanel.hidden); renderTranscript(); });
+  sentence.addEventListener("input", renderTranscript);
+
+  tOnly.addEventListener("change", function(){
+    if(tOnly.checked){
+      if(recording){ stopRec(); }
+      stopPlayback();
+      document.body.classList.add("transcript-only");
+      openTranscript(true);
+    } else {
+      document.body.classList.remove("transcript-only");
+    }
+    updateButtons(); renderTranscript();
+  });
+
+  updateButtons();
+  renderTranscript();
+})();
+</script>
+<!-- EOF: hearing-loss-simulator index.html -->
+</html>
